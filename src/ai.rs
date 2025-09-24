@@ -68,8 +68,6 @@ pub fn get_available_models() -> Vec<String> {
         "gpt-4".to_string(),
         "gpt-4-turbo".to_string(),
         "gpt-3.5-turbo".to_string(),
-        "o1-preview".to_string(),
-        "o1-mini".to_string(),
     ]
 }
 
