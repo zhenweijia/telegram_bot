@@ -2762,6 +2762,7 @@ dependencies = [
  "dotenvy",
  "lambda_runtime",
  "log",
+ "once_cell",
  "pretty_env_logger",
  "serde",
  "serde_json",
