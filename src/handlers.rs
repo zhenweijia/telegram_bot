@@ -2,6 +2,9 @@ use log::info;
 
 #[cfg(feature = "lambda")]
 use log::warn;
+use once_cell::sync::OnceCell;
+use teloxide::RequestError;
+use teloxide::requests::Requester;
 use teloxide::{prelude::*, utils::command::BotCommands};
 
 #[cfg(feature = "lambda")]
@@ -11,11 +14,31 @@ use serde_json::Value;
 
 use crate::commands::{Command, answer};
 
+static BOT_USERNAME: OnceCell<String> = OnceCell::new();
+
+async fn resolve_bot_username(bot: &Bot) -> Result<&str, RequestError> {
+    if let Some(username) = BOT_USERNAME.get() {
+        return Ok(username.as_str());
+    }
+
+    let bot_user = bot.get_me().await?;
+    let username = bot_user
+        .username
+        .clone()
+        .unwrap_or_else(|| "bot".to_string());
+
+    let _ = BOT_USERNAME.set(username);
+
+    Ok(BOT_USERNAME
+        .get()
+        .expect("bot username should be set")
+        .as_str())
+}
+
 pub async fn handle_message(bot: Bot, msg: Message) -> ResponseResult<()> {
     if let Some(text) = msg.text() {
         // Get bot info to use the correct username for command parsing
-        let bot_user = bot.get_me().await?;
-        let bot_username = bot_user.username.as_deref().unwrap_or("bot");
+        let bot_username = resolve_bot_username(&bot).await?;
 
         info!("📝 Processing message: '{text}' with bot username: @{bot_username}");
 
@@ -56,7 +79,9 @@ pub async fn handle_message(bot: Bot, msg: Message) -> ResponseResult<()> {
                 bot.send_message(msg.chat.id, response).await?;
             } else if !processed_text.trim().is_empty() {
                 // Not a command, treat as general AI chat (default behavior)
-                info!("🤖 No command detected - defaulting to /general for message: '{processed_text}'");
+                info!(
+                    "🤖 No command detected - defaulting to /general for message: '{processed_text}'"
+                );
                 info!("🔄 Converting to Command::General");
                 answer(bot, msg, Command::General(processed_text)).await?;
             } else {
@@ -87,20 +112,18 @@ pub async fn handle_message(bot: Bot, msg: Message) -> ResponseResult<()> {
 }
 
 #[cfg(feature = "lambda")]
-pub async fn lambda_handler(
-    event: LambdaEvent<Value>,
-) -> Result<Value, LambdaError> {
+pub async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     info!("🔗 Lambda received event: {:?}", event.payload);
-    
+
     let bot = Bot::from_env();
-    
+
     // Parse the Telegram webhook update from the Lambda event body
     if let Some(body) = event.payload.get("body").and_then(|b| b.as_str()) {
         info!("📦 Extracted body from Lambda event: {body}");
-        
+
         if let Ok(update) = serde_json::from_str::<teloxide::types::Update>(body) {
             info!("✅ Successfully parsed Telegram update: {:?}", update.id);
-            
+
             if let teloxide::types::UpdateKind::Message(message) = update.kind {
                 let _ = handle_message(bot, message).await;
             } else {
@@ -112,7 +135,7 @@ pub async fn lambda_handler(
     } else {
         warn!("❌ No body field found in Lambda event");
     }
-    
+
     // Return success response
     Ok(serde_json::json!({
         "statusCode": 200,
