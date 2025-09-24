@@ -1,7 +1,9 @@
 use log::{info, warn};
 use teloxide::{prelude::*, utils::command::BotCommands};
 
-use crate::ai::{create_ai_backend_with_model, get_available_models, get_current_model, set_current_model};
+use crate::ai::{
+    create_ai_backend_with_model, get_available_models, get_current_model, set_current_model,
+};
 
 #[derive(BotCommands, Clone, Debug)]
 #[command(
@@ -17,7 +19,9 @@ pub enum Command {
     UsernameAndAge { username: String, age: u8 },
     #[command(description = "chat with AI - send your message after the command.")]
     General(String),
-    #[command(description = "change or view current AI model - use '/model list' to see available models.")]
+    #[command(
+        description = "change or view current AI model - use '/model list' to see available models."
+    )]
     Model(String),
 }
 
@@ -138,7 +142,7 @@ pub async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> 
                 "list" => {
                     let models = get_available_models();
                     let current = get_current_model(&chat_id).await;
-                    let mut response = format!("📋 Available AI models:\n\n");
+                    let mut response = "📋 Available AI models:\n\n".to_string();
                     for model in &models {
                         let indicator = if model == &current { "✅" } else { "  " };
                         response.push_str(&format!("{indicator} {model}\n"));
@@ -147,7 +151,8 @@ pub async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> 
                     response.push_str("Use `/model <model_name>` to change models.");
                     info!(
                         "📤 Sending model list to chat {}: {} models available",
-                        msg.chat.id, models.len()
+                        msg.chat.id,
+                        models.len()
                     );
                     bot.send_message(msg.chat.id, response).await?
                 }
@@ -168,18 +173,12 @@ pub async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> 
                         match set_current_model(&chat_id, model_name.to_string()).await {
                             Ok(()) => {
                                 let response = format!("✅ AI model changed to: {model_name}");
-                                info!(
-                                    "🔧 Model changed for chat {} to: {model_name}",
-                                    msg.chat.id
-                                );
+                                info!("🔧 Model changed for chat {} to: {model_name}", msg.chat.id);
                                 bot.send_message(msg.chat.id, response).await?
                             }
                             Err(e) => {
                                 let response = format!("❌ Failed to save model preference: {e}");
-                                warn!(
-                                    "❌ Failed to save model for chat {}: {e}",
-                                    msg.chat.id
-                                );
+                                warn!("❌ Failed to save model for chat {}: {e}", msg.chat.id);
                                 bot.send_message(msg.chat.id, response).await?
                             }
                         }

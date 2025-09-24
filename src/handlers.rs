@@ -27,12 +27,7 @@ async fn resolve_bot_username(bot: &Bot) -> Result<&str, RequestError> {
         .clone()
         .unwrap_or_else(|| "bot".to_string());
 
-    let _ = BOT_USERNAME.set(username);
-
-    Ok(BOT_USERNAME
-        .get()
-        .expect("bot username should be set")
-        .as_str())
+    Ok(BOT_USERNAME.get_or_init(move || username).as_str())
 }
 
 pub async fn handle_message(bot: Bot, msg: Message) -> ResponseResult<()> {

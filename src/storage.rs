@@ -94,11 +94,11 @@ impl DynamoDbStorage {
 
         match result.item {
             Some(item) => {
-                if let Some(model_attr) = item.get("ai_model") {
-                    if let Some(model) = model_attr.as_s().ok() {
-                        info!("✅ Found model preference for {chat_id}: {model}");
-                        return Ok(Some(model.clone()));
-                    }
+                if let Some(model_attr) = item.get("ai_model")
+                    && let Ok(model) = model_attr.as_s()
+                {
+                    info!("✅ Found model preference for {chat_id}: {model}");
+                    return Ok(Some(model.to_string()));
                 }
                 warn!("⚠️ Invalid model data format for chat_id: {chat_id}");
                 Ok(None)
@@ -198,11 +198,8 @@ pub async fn create_storage() -> Result<&'static DynamoDbStorage, StorageError> 
     }
 
     let storage = DynamoDbStorage::new().await?;
-    let _ = STORAGE.set(storage);
 
-    STORAGE.get().ok_or_else(|| {
-        StorageError::Configuration("DynamoDB storage failed to initialize".to_string())
-    })
+    Ok(STORAGE.get_or_init(move || storage))
 }
 
 // Helper function to get default model
